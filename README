@@ -1,0 +1,2 @@
+This Library was created mainly to interface ATAPI cd readers with MCUs.
+It can be used to read and write data on cd supports with the main focus of playing audio files
