@@ -1,3 +1,3 @@
 This Library was created mainly to interface ATAPI (Advanced Technology Attachment Packet Interface) optical readers with MCUs.
-It can be used to read and write data on cd and dvd supports with the main focus of playing audio files.
+It can be used to read and write data on cd and dvd supports with the main focus of playing audio files and building music players.
 The library introduces compact functions to easily use theese kind of devices.
