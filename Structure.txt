@@ -1,0 +1,30 @@
+*INFO
+-GetID(): ID //Returns support unique ID with three factors indentification
+-GetTracksN(): int //Returns total number of tracks on the support
+-GetTracks(): list[String] //Returns list of the titles of all the tracks on the support
+-GetTrackN(): int //Returns total number of tracks on the support
+
+*PLAYER
+-Play(int): void
+-Pause(): void
+-Skip(): void // skips current playing track
+-Previous(): void // plays previous track
+-JumpTo(int): void // jumps to specific track
+-GetRandomTrack(): int // Gets random track number accounting for tracks already played until at that point
+-PlayRandomTrack(): void // Plays random track accounting for tracks already played until that point
+-Repeat(): void // Repeats current playing track one time
+-Loop(): void // Loops current playing track (reapeats ad infinitum)
+
+*UTIL
+-Check():
+-PowerOFF():
+-PowerON():
+
+(ADVANCED FUNCTIONS)
+
+*READER
+-ReadSector():
+
+
+*WRITER
+-WriteSector():
