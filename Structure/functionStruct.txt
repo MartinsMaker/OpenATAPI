@@ -1,0 +1,20 @@
+void fermaAudio() {
+  Serial.println("[STOP] Interruzione riproduzione...");
+  
+  writeIDE(0xF6, 0xA0, 0xFF); // Seleziona il Drive Master
+  wait_BSY_clear();
+
+  writeIDE(ComSReg, 0xA0, 0xFF); // Avvisa il drive che arriva un pacchetto
+  wait_DRQ_set();
+
+  // Invia il pacchetto ATAPI di 12 byte (6 scritture a 16 bit)
+  writeIDE(DataReg, 0x4E, 0x00); // Word 1: Opcode 0x4E (Stop) + Byte 2 (0x00)
+  writeIDE(DataReg, 0x00, 0x00); // Word 2
+  writeIDE(DataReg, 0x00, 0x00); // Word 3
+  writeIDE(DataReg, 0x00, 0x00); // Word 4
+  writeIDE(DataReg, 0x00, 0x00); // Word 5
+  writeIDE(DataReg, 0x00, 0x00); // Word 6
+  
+  wait_BSY_clear();
+  Serial.println("[OK] Motore in fase di arresto.");
+}
