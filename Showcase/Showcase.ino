@@ -25,6 +25,7 @@ void PauseResume();
 void Stop();
 void Skip();
 void Previous();
+void TracksCount(int count);
 
 // Funzioni ATAPI
 void eseguiComandoTray(bool apri);
@@ -86,6 +87,10 @@ void loop() {
     else if (comando == 'PAUSE' || comando == 'pause' || comando == 'RESUME' || comando == 'resume') {
       Serial.println("RESUMING/PAUSING TRACK");
       PauseResume();
+    }
+    else if (comando == 'TracksN') {
+      Serial.println("TOTAL NUMBER OF TRACKS");
+      TracksCount();
     }
   
   
@@ -261,5 +266,47 @@ void Stop(){
   writeIDE(DataReg, 0x00, 0x00); // Word 6
   
   wait_BSY_clear();
+}
+
+int TracksCount(){
+  wait_BSY_clear();
+  writeIDE(0xF6, 0xA0, 0xFF); 
+  wait_BSY_clear();
+
+  writeIDE(ComSReg, 0xA0, 0xFF); 
+  wait_DRQ_set();
+
+  writeIDE(DataReg, 0x43, 0x00); 
+  writeIDE(DataReg, 0x00, 0x00); 
+  writeIDE(DataReg, 0x00, 0x00); 
+  writeIDE(DataReg, 0x00, 0x00); 
+  writeIDE(DataReg, 0x00, 0x00); 
+  writeIDE(DataReg, 0x00, 0x00); 
+  
+  wait_DRQ_set();
+  
+  // Reading bytes from the the dataRegister (byte pointer is automatically moved with each reading)
+  byte dataLenMSB = readIDE_LowByte(DataReg); // first reading (byte 0)
+  byte dataLenLSB = readIDE_LowByte(DataReg); // second reading (byte 1)
+  byte firstTrack = readIDE_LowByte(DataReg); // third reading (byte 2)
+  byte LastTrack = readIDE_LowByte(DataReg);  // fourth reading (byte 3)
+  
+  //reading the remeaning bytes to empty the answer buffer
+  for(int i = 0; i < 8; i++) {
+    readIDE_LowByte(DataReg);
+  }
+
+  wait_BSY_clear();
+  
+  if (LastTrack == 0 || LastTrack > 99) {
+    Serial.println("[ERROR]");
+    return -1;
+  }
+  int last = int(LastTrack);
+  
+  return last;
+  Serial.print("Total number of tracks: ");
+  Serial.print(last);
+
 }
 
