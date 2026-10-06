@@ -26,7 +26,7 @@ void Stop();
 void Skip();
 void Previous();
 int TracksCount();
-
+int CurrentTrack();
 // Funzioni ATAPI
 void eseguiComandoTray(bool apri);
 void testUnitReady();
@@ -276,12 +276,19 @@ int TracksCount(){
   writeIDE(ComSReg, 0xA0, 0xFF); 
   wait_DRQ_set();
 
-  writeIDE(DataReg, 0x43, 0x00); 
+  writeIDE(DataReg, 0x43, 0x00); // Op code TOC reading
+  
+  writeIDE(DataReg, 0x02, 0x00);
+  
   writeIDE(DataReg, 0x00, 0x00); 
   writeIDE(DataReg, 0x00, 0x00); 
   writeIDE(DataReg, 0x00, 0x00); 
-  writeIDE(DataReg, 0x00, 0x00); 
-  writeIDE(DataReg, 0x00, 0x00); 
+  
+  writeIDE(DataReg, 0x00, 0x0C); // 12 bytes reading 
+
+  writeIDE(DataReg, 0x00, 0x00);
+  writeIDE(DataReg, 0x00, 0x00);
+  writeIDE(DataReg, 0x00, 0x00);
   
   wait_DRQ_set();
   
@@ -309,4 +316,46 @@ int TracksCount(){
   Serial.print(last);
 
 }
+int CurrentTrack(){
+  
+wait_BSY_clear();
+  writeIDE(0xF6, 0xA0, 0xFF); 
+  wait_BSY_clear();
 
+  writeIDE(ComSReg, 0xA0, 0xFF); 
+  wait_DRQ_set();
+
+  writeIDE(DataReg, 0x42, 0x00); 
+  
+  writeIDE(DataReg, 0x02, 0x00); 
+  
+  writeIDE(DataReg, 0x40, 0x00); 
+  writeIDE(DataReg, 0x01, 0x00); 
+  writeIDE(DataReg, 0x00, 0x00); 
+  writeIDE(DataReg, 0x00, 0x10); // Allocation lenghth (16 byte)
+  writeIDE(DataReg, 0x00, 0x00);
+  writeIDE(DataReg, 0x00, 0x00);
+  writeIDE(DataReg, 0x00, 0x00);
+  
+  wait_DRQ_set();
+  
+  // Reading bytes from the the dataRegister (byte pointer is automatically moved with each reading)
+  byte reserved = readIDE_LowByte(DataReg); // first reading (byte 0)
+  byte audioStatus = readIDE_LowByte(DataReg); // second reading (byte 1)
+  byte dataLenMSB = readIDE_LowByte(DataReg); // third reading (byte 2)
+  byte dataLenLSB = readIDE_LowByte(DataReg);  // fourth reading (byte 3)
+  byte dataFormat = readIDE_LowByte(DataReg);
+  byte currTrack = readIDE_LowByte(DataReg);
+  byte currTrackIndex = readIDE_LowByte(DataReg);
+  
+  //reading the remeaning bytes to empty the answer buffer
+  for(int i = 0; i < 8; i++) {
+    readIDE_LowByte(DataReg);
+  }
+  
+  int currTrackNumber = int(currTrack);
+  wait_BSY_clear();
+  
+  return currTrackNumber;
+
+}
