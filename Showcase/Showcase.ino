@@ -25,7 +25,7 @@ void PauseResume();
 void Stop();
 void Skip();
 void Previous();
-void TracksCount(int count);
+int TracksCount();
 
 // Funzioni ATAPI
 void eseguiComandoTray(bool apri);
@@ -88,7 +88,7 @@ void loop() {
       Serial.println("RESUMING/PAUSING TRACK");
       PauseResume();
     }
-    else if (comando == 'TracksN') {
+    else if (comando == 'TN') {
       Serial.println("TOTAL NUMBER OF TRACKS");
       TracksCount();
     }
