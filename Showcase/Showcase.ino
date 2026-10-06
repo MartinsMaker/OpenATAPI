@@ -21,12 +21,15 @@ void wait_BSY_clear();
 void wait_DRQ_set();
 
 // PLAYER FUNCTIONS
+//*MEDIA
 void PauseResume();
 void Stop();
 void Skip();
 void Previous();
+//*READING
 int TracksCount();
 int CurrentTrack();
+
 // Funzioni ATAPI
 void eseguiComandoTray(bool apri);
 void testUnitReady();
@@ -316,9 +319,10 @@ int TracksCount(){
   Serial.print(last);
 
 }
+
 int CurrentTrack(){
   
-wait_BSY_clear();
+  wait_BSY_clear();
   writeIDE(0xF6, 0xA0, 0xFF); 
   wait_BSY_clear();
 
@@ -358,4 +362,12 @@ wait_BSY_clear();
   
   return currTrackNumber;
 
+}
+
+Skip(){
+
+}
+
+Previous(){
+  
 }
