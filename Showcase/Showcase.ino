@@ -81,26 +81,32 @@ void loop() {
     }
     else if (comando == 'P' || comando == 'p') {
       Serial.println("\n[EXEC] Esecuzione sequenza di PLAY AUDIO...");
-      avviaPlayTraccia1();
+      avviaPlayTraccia();
     }
-    else if (comando == 'STOP' || comando == 'stop') {
+    else if (comando == 'S' || comando == 's') {
       Serial.println("STOPING READER");
       Stop();
     }
-    else if (comando == 'PAUSE' || comando == 'pause' || comando == 'RESUME' || comando == 'resume') {
+    else if (comando == 'f') {
       Serial.println("RESUMING/PAUSING TRACK");
       PauseResume();
     }
-    else if (comando == 'TN') {
-      Serial.println("TOTAL NUMBER OF TRACKS");
-      TracksCount();
+    else if (comando == 'T' || comando == 't') {
+      Serial.println("\n[EXEC] Richiesta Numero Totale Tracce...");
+      int last = TracksCount();
+      if (last > 0) {
+        Serial.print("Total number of tracks: ");
+        Serial.println(last);
+      } else {
+        Serial.println("Errore di lettura o nessun disco inserito.");
+      }
     }
-  
-  
-  
-  
-  
-  
+    else if (comando == 'u') {
+      Serial.println("CURRENT TRACK");
+      int thisTrack = CurrentTrack();
+      Serial.print("Current track number: ");
+      Serial.println(thisTrack);
+    }
   }
   
 }
@@ -146,16 +152,25 @@ byte readIDE_LowByte(byte regval) {
   highZ(); 
   return valore;
 }
-
 void wait_BSY_clear() {
+  unsigned long startTime = millis();
   while (readIDE_LowByte(ComSReg) & 0x80) {
-    delayMicroseconds(100); 
+    delayMicroseconds(100);
+    if (millis() - startTime > 1000) {
+      Serial.println("[TIMEOUT] BSY non si azzera.");
+      break;
+    }
   }
 }
 
 void wait_DRQ_set() {
+  unsigned long startTime = millis();
   while (!(readIDE_LowByte(ComSReg) & 0x08)) {
     delayMicroseconds(100);
+    if (millis() - startTime > 1000) {
+      Serial.println("[TIMEOUT] DRQ non si alza.");
+      break;
+    }
   }
 }
 
@@ -204,7 +219,7 @@ void testUnitReady() {
   wait_BSY_clear();
 }
 
-void avviaPlayTraccia1() {
+void avviaPlayTraccia() {
   Serial.println("[PLAY] 1. Sblocco e verifica presenza disco...");
   testUnitReady();
   delay(200); // Pausa di sicurezza
@@ -271,7 +286,7 @@ void Stop(){
   wait_BSY_clear();
 }
 
-int TracksCount(){
+int TracksCount() {
   wait_BSY_clear();
   writeIDE(0xF6, 0xA0, 0xFF); 
   wait_BSY_clear();
@@ -279,46 +294,42 @@ int TracksCount(){
   writeIDE(ComSReg, 0xA0, 0xFF); 
   wait_DRQ_set();
 
-  writeIDE(DataReg, 0x43, 0x00); // Op code TOC reading
-  
-  writeIDE(DataReg, 0x02, 0x00);
-  
+  // Pacchetto SCSI READ TOC (0x43)
+  writeIDE(DataReg, 0x43, 0x02); 
   writeIDE(DataReg, 0x00, 0x00); 
   writeIDE(DataReg, 0x00, 0x00); 
+  writeIDE(DataReg, 0x00, 0x0C); 
+  writeIDE(DataReg, 0x00, 0x00); 
   writeIDE(DataReg, 0x00, 0x00); 
   
-  writeIDE(DataReg, 0x00, 0x0C); // 12 bytes reading 
-
-  writeIDE(DataReg, 0x00, 0x00);
-  writeIDE(DataReg, 0x00, 0x00);
-  writeIDE(DataReg, 0x00, 0x00);
-  
+  delay(50); 
   wait_DRQ_set();
   
-  // Reading bytes from the the dataRegister (byte pointer is automatically moved with each reading)
-  byte dataLenMSB = readIDE_LowByte(DataReg); // first reading (byte 0)
-  byte dataLenLSB = readIDE_LowByte(DataReg); // second reading (byte 1)
-  byte firstTrack = readIDE_LowByte(DataReg); // third reading (byte 2)
-  byte LastTrack = readIDE_LowByte(DataReg);  // fourth reading (byte 3)
+  // Parola 0: Lunghezza dati (Byte 0 e 1)
+  uint16_t word0 = readIDE_Word(DataReg);
+  // Parola 1: Byte basso = Prima traccia, Byte alto = Ultima traccia
+  uint16_t word1 = readIDE_Word(DataReg);
   
-  //reading the remeaning bytes to empty the answer buffer
-  for(int i = 0; i < 8; i++) {
-    readIDE_LowByte(DataReg);
+  byte firstTrack = (byte)(word1 & 0xFF);
+  byte LastTrack  = (byte)((word1 >> 8) & 0xFF);
+  
+  // reading remaining word to empty the buffer
+  for(int i = 0; i < 6; i++) {
+    readIDE_Word(DataReg);
   }
 
   wait_BSY_clear();
   
   if (LastTrack == 0 || LastTrack > 99) {
-    Serial.println("[ERROR]");
+    Serial.println("[ERROR] TOC illeggibile.");
     return -1;
   }
-  int last = int(LastTrack);
   
-  return last;
-  Serial.print("Total number of tracks: ");
-  Serial.print(last);
-
+  return (int)LastTrack;
 }
+
+
+
 
 int CurrentTrack(){
   
@@ -329,34 +340,28 @@ int CurrentTrack(){
   writeIDE(ComSReg, 0xA0, 0xFF); 
   wait_DRQ_set();
 
-  writeIDE(DataReg, 0x42, 0x00); 
-  
-  writeIDE(DataReg, 0x02, 0x00); 
-  
-  writeIDE(DataReg, 0x40, 0x00); 
-  writeIDE(DataReg, 0x01, 0x00); 
-  writeIDE(DataReg, 0x00, 0x00); 
+  writeIDE(DataReg, 0x42, 0x02);  
+  writeIDE(DataReg, 0x40, 0x01); 
+  writeIDE(DataReg, 0x00, 0x00);  
   writeIDE(DataReg, 0x00, 0x10); // Allocation lenghth (16 byte)
-  writeIDE(DataReg, 0x00, 0x00);
   writeIDE(DataReg, 0x00, 0x00);
   writeIDE(DataReg, 0x00, 0x00);
   
   wait_DRQ_set();
   
   // Reading bytes from the the dataRegister (byte pointer is automatically moved with each reading)
-  byte reserved = readIDE_LowByte(DataReg); // first reading (byte 0)
-  byte audioStatus = readIDE_LowByte(DataReg); // second reading (byte 1)
-  byte dataLenMSB = readIDE_LowByte(DataReg); // third reading (byte 2)
-  byte dataLenLSB = readIDE_LowByte(DataReg);  // fourth reading (byte 3)
-  byte dataFormat = readIDE_LowByte(DataReg);
-  byte currTrack = readIDE_LowByte(DataReg);
-  byte currTrackIndex = readIDE_LowByte(DataReg);
+  uint16_t word0 = readIDE_Word(DataReg); // Byte 0 (Reserved), Byte 1 (Audio Status)
+  uint16_t word1 = readIDE_Word(DataReg); // Byte 2 (Len MSB), Byte 3 (Len LSB)
+  uint16_t word2 = readIDE_Word(DataReg); // Byte 4 (Data Format), Byte 5 (ADR/Control)
+  uint16_t word3 = readIDE_Word(DataReg); // Byte 6 (CURRENT TRACK!), Byte 7 (Index)
   
-  //reading the remeaning bytes to empty the answer buffer
-  for(int i = 0; i < 8; i++) {
-    readIDE_LowByte(DataReg);
+  byte audioStatus = (byte)((word0 >> 8) & 0xFF);
+  byte currTrack   = (byte)(word3 & 0xFF); // La traccia corrente è nel byte basso della word 3
+
+  // Svuotiamo le restanti 4 parole (8 byte) per chiudere il buffer
+  for(int i = 0; i < 4; i++) {
+    readIDE_Word(DataReg);
   }
-  
   int currTrackNumber = int(currTrack);
   wait_BSY_clear();
   
@@ -364,10 +369,38 @@ int CurrentTrack(){
 
 }
 
-Skip(){
-
+void wait_DRQ_or_Error() {
+  unsigned long startTime = millis();
+  while (true) {
+    byte status = readIDE_LowByte(ComSReg);
+    
+    // Se DRQ si alza, i dati sono pronti
+    if (status & 0x08) break;
+    
+    // Se il lettore segnala un errore (ERR bit attivo), usciamo dal ciclo
+    if (status & 0x01) {
+      Serial.println("[ERRORE IDE] Il lettore ha rifiutato il comando (ERR bit attivo)!");
+      break;
+    }
+    
+    if (millis() - startTime > 1000) {
+      Serial.println("[TIMEOUT] Timeout in attesa di risposta dal drive.");
+      break;
+    }
+    delayMicroseconds(100);
+  }
 }
 
-Previous(){
+uint16_t readIDE_Word(byte regval) {
+  byte reg = regval & 0x7F; 
+  Wire1.beginTransmission(AddrRegSel);  Wire1.write(reg);  Wire1.endTransmission();
   
+  Wire1.requestFrom(AddrDataL, 1);
+  byte lowByte = Wire1.read();
+  
+  Wire1.requestFrom(AddrDataH, 1);
+  byte highByte = Wire1.read();
+  
+  highZ(); 
+  return (uint16_t)((highByte << 8) | lowByte);
 }
